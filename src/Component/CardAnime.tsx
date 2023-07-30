@@ -47,7 +47,6 @@ const CardAnime: React.FC = () => {
     const storedCollections = localStorage.getItem('collections');
     return storedCollections ? JSON.parse(storedCollections) : [];
   });
-  const [selectedAnime, setSelectedAnime] = useState<AnimeData | null>(null);
 
   useEffect(() => {
     localStorage.setItem('collections', JSON.stringify(collections));
@@ -75,7 +74,9 @@ const CardAnime: React.FC = () => {
   };
 
   const handleAddToCollection = (anime: AnimeData) => {
-    setSelectedAnime(anime);
+    setSelectedCollection(null); // Reset selectedCollection state to show the "Add New Collection" option
+    setCollectionName(''); // Reset the new collection name when "Add New Collection" is selected
+    setSelectedAnime(anime); // Set the currently selected anime when adding it to a collection
     setShowModal(true);
   };
 
@@ -87,31 +88,48 @@ const CardAnime: React.FC = () => {
   };
 
   const handleSubmitCollection = () => {
-    if (!selectedAnime || collectionName.trim() === '') {
-      return;
+    if (collectionName.trim() === '') {
+      return; // Prevent saving collection with an empty name
     }
 
+    // Check if the collection name contains special characters
     if (/[^a-zA-Z0-9 ]/.test(collectionName)) {
       alert('Collection name cannot contain special characters.');
       return;
     }
 
-    const existingCollection = collections.find((collection) => collection.name === collectionName);
-    if (existingCollection) {
-      const updatedCollection: Collection = {
-        ...existingCollection,
-        animes: [...existingCollection.animes, selectedAnime],
-      };
-      setCollections((prevCollections) =>
-        prevCollections.map((collection) =>
-          collection.name === collectionName ? updatedCollection : collection
-        )
-      );
+    if (selectedAnime) {
+      // Check if the selected collection name already exists in localStorage
+      const existingCollection = collections.find((collection) => collection.name === collectionName);
+
+      // If the selected collection name exists, add the selected anime to it
+      if (existingCollection) {
+        // Check if the anime already exists in the collection
+        const animeExists = existingCollection.animes.some((anime) => anime.id === selectedAnime.id);
+        if (!animeExists) {
+          setCollections((prevCollections) =>
+            prevCollections.map((collection) =>
+              collection.name === collectionName
+                ? { ...collection, animes: [...collection.animes, selectedAnime] }
+                : collection
+            )
+          );
+        }
+      } else {
+        // If the selected collection name doesn't exist, create a new collection with the entered name
+        const newCollection: Collection = {
+          name: collectionName,
+          animes: [selectedAnime],
+        };
+        setCollections((prevCollections) => [...prevCollections, newCollection]);
+      }
     } else {
+      // If no anime is selected, create a new collection with the entered name
       const newCollection: Collection = {
         name: collectionName,
-        animes: [selectedAnime],
+        animes: [],
       };
+
       setCollections((prevCollections) => [...prevCollections, newCollection]);
     }
 
@@ -119,31 +137,23 @@ const CardAnime: React.FC = () => {
   };
 
   const handleRemoveFromCollection = (collectionName: string) => {
-    if (!selectedAnime) {
-      return;
-    }
-
     setCollections((prevCollections) =>
-      prevCollections.map((collection) =>
-        collection.name === collectionName
-          ? { ...collection, animes: collection.animes.filter((anime) => anime.id !== selectedAnime.id) }
-          : collection
-      )
+      prevCollections.filter((collection) => collection.name !== collectionName)
     );
   };
 
   const handleSelectCollection = (selected: string) => {
     if (selected === 'new') {
       setSelectedCollection(null);
-      setSelectedAnime(null);
-      setCollectionName('');
+      setCollectionName(''); // Reset the new collection name when "Add New Collection" is selected
     } else {
       const collection = collections.find((collection) => collection.name === selected);
       setSelectedCollection(collection || null);
-      setSelectedAnime(null);
-      setCollectionName('');
+      setCollectionName(''); // Reset the new collection name when an existing collection is selected
     }
   };
+
+  const [selectedAnime, setSelectedAnime] = useState<AnimeData | null>(null);
 
   const isAnimeInCollection = (collection: Collection, anime: AnimeData) => {
     return collection.animes.some((a) => a.id === anime.id);
@@ -152,12 +162,17 @@ const CardAnime: React.FC = () => {
   return (
     <div className="container mt-5">
       <div className="row row-cols-2 row-cols-md-5 g-4">
+        {/* Display anime for the current page */}
         {animeList.slice((currentPage - 1) * 10, currentPage * 10).map((anime) => (
           <div className="col" key={anime.id}>
             <Card style={{ backgroundColor: '#0c0e0f', color: '#fff', height: '100%', position: 'relative' }}>
-              <Card.Img variant="top" src={anime.coverImage.large} style={{ height: '300px', objectFit: 'cover' }} />
+              <Card.Img
+                variant="top"
+                src={anime.coverImage.large}
+                style={{ height: '300px', objectFit: 'cover' }}
+              />
               <Card.Body>
-                <Link to={`/anime/${anime.id}`}>
+                <Link to={`/anime/${anime.id}`}> {/* Move the Link here */}
                   <Card.Title style={{ marginBottom: '20px' }}>{anime.title.romaji}</Card.Title>
                 </Link>
                 <div style={{ position: 'absolute', bottom: 0, right: 0, padding: '10px' }}>
@@ -171,15 +186,12 @@ const CardAnime: React.FC = () => {
         ))}
       </div>
       <div className="text-center mt-4">
+        {/* Use the container to center the pagination */}
         <div className="d-flex justify-content-center">
           <Pagination>
             <Pagination.Prev onClick={handlePrevPage} disabled={currentPage === 1} />
             {Array.from({ length: totalPages }, (_, index) => (
-              <Pagination.Item
-                key={index + 1}
-                active={index + 1 === currentPage}
-                onClick={() => setCurrentPage(index + 1)}
-              >
+              <Pagination.Item key={index + 1} active={index + 1 === currentPage} onClick={() => setCurrentPage(index + 1)}>
                 {index + 1}
               </Pagination.Item>
             ))}
@@ -187,6 +199,7 @@ const CardAnime: React.FC = () => {
           </Pagination>
         </div>
       </div>
+      {/* Modal component */}
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>{selectedCollection ? 'Edit Collection' : 'Add to Collection'}</Modal.Title>
@@ -214,10 +227,18 @@ const CardAnime: React.FC = () => {
                 {selectedCollection.animes.map((anime) => (
                   <ListGroup.Item key={anime.id}>
                     {anime.title.romaji}{' '}
+                    {selectedAnime && isAnimeInCollection(selectedCollection, selectedAnime) && (
+                      <Badge>Added</Badge>
+                    )}
                     <Button
                       variant="danger"
                       size="sm"
-                      onClick={() => handleRemoveFromCollection(selectedCollection.name)}
+                      onClick={() =>
+                        setSelectedCollection((prev) => ({
+                          ...prev!,
+                          animes: prev!.animes.filter((a) => a.id !== anime.id),
+                        }))
+                      }
                     >
                       Remove
                     </Button>
@@ -241,9 +262,6 @@ const CardAnime: React.FC = () => {
                 {collections.map((collection) => (
                   <ListGroup.Item key={collection.name}>
                     {collection.name}{' '}
-                    {selectedAnime && isAnimeInCollection(collection, selectedAnime) && (
-                      <Badge>Added</Badge>
-                    )}
                     <Button
                       variant="danger"
                       size="sm"
