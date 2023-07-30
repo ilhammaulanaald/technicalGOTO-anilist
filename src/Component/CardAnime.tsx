@@ -88,46 +88,41 @@ const CardAnime: React.FC = () => {
   };
 
   const handleSubmitCollection = () => {
-    if (collectionName.trim() === '') {
-      return; // Prevent saving collection with an empty name
-    }
-
-    // Check if the collection name contains special characters
-    if (/[^a-zA-Z0-9 ]/.test(collectionName)) {
-      alert('Collection name cannot contain special characters.');
+    if (!selectedAnime) {
+      // No anime selected, do nothing
       return;
     }
 
-    if (selectedAnime) {
-      // Check if the selected collection name already exists in localStorage
-      const existingCollection = collections.find((collection) => collection.name === collectionName);
-
-      // If the selected collection name exists, add the selected anime to it
-      if (existingCollection) {
-        // Check if the anime already exists in the collection
-        const animeExists = existingCollection.animes.some((anime) => anime.id === selectedAnime.id);
-        if (!animeExists) {
-          setCollections((prevCollections) =>
-            prevCollections.map((collection) =>
-              collection.name === collectionName
-                ? { ...collection, animes: [...collection.animes, selectedAnime] }
-                : collection
-            )
-          );
-        }
-      } else {
-        // If the selected collection name doesn't exist, create a new collection with the entered name
-        const newCollection: Collection = {
-          name: collectionName,
-          animes: [selectedAnime],
+    if (selectedCollection) {
+      // If an existing collection is selected, add the selected anime to it
+      if (!isAnimeInCollection(selectedCollection, selectedAnime)) {
+        const updatedCollection: Collection = {
+          ...selectedCollection,
+          animes: [...selectedCollection.animes, selectedAnime],
         };
-        setCollections((prevCollections) => [...prevCollections, newCollection]);
+
+        setCollections((prevCollections) =>
+          prevCollections.map((collection) =>
+            collection.name === selectedCollection.name ? updatedCollection : collection
+          )
+        );
       }
     } else {
-      // If no anime is selected, create a new collection with the entered name
+      // If no collection is selected, create a new collection with the entered name
+      if (collectionName.trim() === '') {
+        alert('Please enter a collection name.');
+        return;
+      }
+
+      // Check if the collection name contains special characters
+      if (/[^a-zA-Z0-9 ]/.test(collectionName)) {
+        alert('Collection name cannot contain special characters.');
+        return;
+      }
+
       const newCollection: Collection = {
         name: collectionName,
-        animes: [],
+        animes: [selectedAnime],
       };
 
       setCollections((prevCollections) => [...prevCollections, newCollection]);

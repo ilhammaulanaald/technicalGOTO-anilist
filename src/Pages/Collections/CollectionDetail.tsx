@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Button, Modal } from 'react-bootstrap';
-import { useParams, useNavigate, Link } from 'react-router-dom'; // Import Link from react-router-dom
+import { useParams, useNavigate, Link } from 'react-router-dom';
 
 interface AnimeData {
   id: number;
@@ -31,7 +31,10 @@ const CollectionDetail: React.FC<CollectionDetailProps> = ({ collections, setCol
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [animeToRemove, setAnimeToRemove] = useState<AnimeData | null>(null);
 
-  const handleRemoveAnime = (anime: AnimeData) => {
+  const handleRemoveAnime = (event: React.MouseEvent, anime: AnimeData) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     setAnimeToRemove(anime);
     setShowConfirmation(true);
   };
@@ -85,20 +88,22 @@ const CollectionDetail: React.FC<CollectionDetailProps> = ({ collections, setCol
       <div className="row row-cols-2 row-cols-md-5 g-4">
         {collection.animes.map((anime) => (
           <div className="col" key={anime.id}>
-            <Card style={{ backgroundColor: '#0c0e0f', color: '#fff', height: '100%' }}>
-              <Link to={`/anime/${anime.id}`}> {/* Add Link to Anime Detail */}
-                <Card.Img
-                  variant="top"
-                  src={anime.coverImage.large}
-                  style={{ height: '300px', objectFit: 'cover' }}
-                />
-                <Card.Body>
-                  <Card.Title>{anime.title.romaji}</Card.Title>
-                  <Button variant="danger" onClick={() => handleRemoveAnime(anime)}>
-                    Remove
-                  </Button>
-                </Card.Body>
-              </Link>
+            {/* Add Link to Anime Detail */}
+            <Card
+              style={{ backgroundColor: '#0c0e0f', color: '#fff', height: '100%' }}
+              onClick={() => navigate(`/collection/${collectionName}/anime/${anime.id}`)}
+            >
+              <Card.Img
+                variant="top"
+                src={anime.coverImage.large}
+                style={{ height: '300px', objectFit: 'cover' }}
+              />
+              <Card.Body>
+                <Card.Title>{anime.title.romaji}</Card.Title>
+                <Button variant="danger" onClick={(e) => handleRemoveAnime(e, anime)}>
+                  Remove
+                </Button>
+              </Card.Body>
             </Card>
           </div>
         ))}
