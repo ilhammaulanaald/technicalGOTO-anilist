@@ -1,0 +1,205 @@
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Modal, Form, ListGroup } from 'react-bootstrap';
+import { useQuery, gql } from '@apollo/client';
+
+interface AnimeData {
+  id: number;
+  title: {
+    romaji: string;
+  };
+  coverImage: {
+    large: string;
+  };
+}
+
+const GET_ANIME_DATA = gql`
+  query ($perPage: Int) {
+    Page(perPage: $perPage) {
+      media(type: ANIME, sort: TRENDING_DESC) {
+        id
+        title {
+          romaji
+        }
+        coverImage {
+          large
+        }
+      }
+    }
+  }
+`;
+
+interface Collection {
+  name: string;
+  animes: AnimeData[];
+}
+
+const CardAnime: React.FC = () => {
+  const { loading, error, data } = useQuery<{ Page: { media: AnimeData[] } }>(GET_ANIME_DATA, {
+    variables: { perPage: 10 },
+  });
+
+  const [animeList, setAnimeList] = useState<AnimeData[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [collectionName, setCollectionName] = useState('');
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [collections, setCollections] = useState<Collection[]>(() => {
+    // Retrieve collections from local storage when the component is mounted
+    const storedCollections = localStorage.getItem('collections');
+    return storedCollections ? JSON.parse(storedCollections) : [];
+  });
+
+  useEffect(() => {
+    // Save collections to local storage whenever it changes
+    localStorage.setItem('collections', JSON.stringify(collections));
+  }, [collections]);
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  const animeData = data && data.Page ? data.Page.media : [];
+
+  const handleAddToCollection = (anime: AnimeData) => {
+    setAnimeList((prevList) => [...prevList, anime]);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setCollectionName('');
+    setSelectedCollection(null);
+  };
+
+  const handleSubmitCollection = () => {
+    if (collectionName.trim() === '') {
+      return; // Prevent saving collection with empty name
+    }
+
+    // Check if the collection name contains special characters
+    if (/[^a-zA-Z0-9 ]/.test(collectionName)) {
+      alert('Collection name cannot contain special characters.');
+      return;
+    }
+
+    // Check if the collection name already exists in other collections
+    const existingCollection = collections.find((collection) => collection.name === collectionName);
+    if (existingCollection) {
+      const updatedCollection: Collection = {
+        ...existingCollection,
+        animes: [...existingCollection.animes, ...animeList.slice(0, 5)], // Combine existing anime and newly added anime
+      };
+      setCollections((prevCollections) =>
+        prevCollections.map((collection) =>
+          collection.name === collectionName ? updatedCollection : collection
+        )
+      );
+    } else {
+      // Create a new collection (up to 5 anime)
+      const newCollection: Collection = {
+        name: collectionName,
+        animes: animeList.slice(0, 5),
+      };
+      setCollections((prevCollections) => [...prevCollections, newCollection]);
+    }
+
+    handleCloseModal();
+  };
+
+  const handleRemoveFromCollection = (collectionName: string) => {
+    setCollections((prevCollections) =>
+      prevCollections.filter((collection) => collection.name !== collectionName)
+    );
+  };
+
+  const handleSelectCollection = (selected: string) => {
+    if (selected === 'new') {
+      setSelectedCollection(null);
+      setCollectionName('');
+    } else {
+      const collection = collections.find((collection) => collection.name === selected);
+      if (collection) {
+        setSelectedCollection(collection);
+        setCollectionName(collection.name);
+      }
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="row row-cols-2 row-cols-md-5 g-4">
+        {animeData.map((anime) => (
+          <div className="col" key={anime.id}>
+            <Card style={{ backgroundColor: '#0c0e0f', color: '#fff', height: '100%' }}>
+              <Card.Img
+                variant="top"
+                src={anime.coverImage.large}
+                style={{ height: '300px', objectFit: 'cover' }}
+              />
+              <Card.Body>
+                <Card.Title>{anime.title.romaji}</Card.Title>
+                <Button variant="primary" onClick={() => handleAddToCollection(anime)}>
+                  Add to Collection
+                </Button>
+              </Card.Body>
+            </Card>
+          </div>
+        ))}
+      </div>
+
+      <Modal show={showModal} onHide={handleCloseModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>{selectedCollection ? 'Edit Collection' : 'Add to Collection'}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCollection ? (
+            <>
+              <h5>Selected Collection: {selectedCollection.name}</h5>
+              <ListGroup>
+                {selectedCollection.animes.map((anime) => (
+                  <ListGroup.Item key={anime.id}>{anime.title.romaji}</ListGroup.Item>
+                ))}
+              </ListGroup>
+              <hr />
+              <Form.Group controlId="newCollectionName">
+                <Form.Label>Enter New Collection Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter collection name"
+                  value={collectionName}
+                  onChange={(e) => setCollectionName(e.target.value)}
+                />
+              </Form.Group>
+            </>
+          ) : (
+            <>
+              <Form.Group controlId="collectionSelect">
+                <Form.Label>Or Select Existing Collection</Form.Label>
+                <Form.Control
+                  as="select"
+                  value={collectionName}
+                  onChange={(e) => handleSelectCollection(e.target.value)}
+                >
+                  <option value="new">Add New Collection</option>
+                  {collections.map((collection) => (
+                    <option key={collection.name} value={collection.name}>
+                      {collection.name}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseModal}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={handleSubmitCollection}>
+            Save Changes
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+};
+
+export default CardAnime;
